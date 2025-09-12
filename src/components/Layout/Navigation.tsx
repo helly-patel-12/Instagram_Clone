@@ -12,7 +12,7 @@ import {
   MessageCircle,
   ListCollapse,
 } from "lucide-react";
-import {useAuth} from "../../contexts/AuthContext";
+import {useAuth} from "../../contexts/useAuth";
 
 interface NavigationProps {
   currentPage: string;
@@ -269,10 +269,10 @@ const Navigation: React.FC<NavigationProps> = ({
       {showMoreMenu && (
         <div className="fixed bottom-24 left-36 bg-gray-50 shadow-lg rounded-xl p-3 w-52 z-50">
           <ul className="space-y-2 text-gray-800 text-sm">
-            <li className="cursor-pointer hover:bg-gray-100 p-2 rounded">
+            <li className="cursor-pointer hover:bg-gray-100 p-2 rounded" onClick={() => onPageChange("profile")}>
               Settings
             </li>
-            <li className="cursor-pointer hover:bg-gray-100 p-2 rounded">
+            <li className="cursor-pointer hover:bg-gray-100 p-2 rounded" onClick={() => onPageChange("home")} >
               Your Activity
             </li>
             <li
@@ -330,7 +330,7 @@ const Navigation: React.FC<NavigationProps> = ({
               </div>
             )}
 
-            <li className="cursor-pointer hover:bg-gray-100 p-2 rounded">
+            <li className="cursor-pointer hover:bg-gray-100 p-2 rounded" onClick={() => onPageChange("home")} >
               Report a Problem
             </li>
             <hr />

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Heart,
   // MessageCircle,
@@ -7,9 +7,10 @@ import {
   MoreHorizontal,
   Trash2,
 } from "lucide-react";
-import { Post, Comment } from "../../types";
-import { getUserById, savePost } from "../../utils/storage";
-import { useAuth } from "../../contexts/AuthContext";
+import { Post, Comment, User } from "../../types";
+import { db } from "../../utils/firebase";
+import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { useAuth } from "../../contexts/useAuth";
 
 interface PostCardProps {
   post: Post;
@@ -40,47 +41,41 @@ const PostCard: React.FC<PostCardProps> = ({
   const [isSaved, setIsSaved] = useState(
     currentUser?.savedPosts?.includes(post.id) || false
   );
-  const postUser = getUserById(post.userId);
+  const [postUser, setPostUser] = useState<User | null>(null);
+  useEffect(() => {
+    const fetchUser = async () => {
+      const userDoc = await getDoc(doc(db, "users", post.userId));
+      if (userDoc.exists()) {
+        setPostUser({ id: userDoc.id, ...userDoc.data() } as User);
+      } else {
+        setPostUser(null);
+      }
+    };
+    fetchUser();
+  }, [post.userId]);
 
-  const { updateCurrentUser } = useAuth();
   const handleSave = () => {
     if (!currentUser) return;
-    const updatedUser = { ...currentUser };
-    if (!updatedUser.savedPosts) updatedUser.savedPosts = [];
-    if (isSaved) {
-      updatedUser.savedPosts = updatedUser.savedPosts.filter(
-        (id) => id !== post.id
-      );
-    } else {
-      updatedUser.savedPosts.push(post.id);
-    }
     setIsSaved(!isSaved);
-    updateCurrentUser(updatedUser);
+    const userRef = doc(db, "users", currentUser.id);
+    updateDoc(userRef, {
+      savedPosts: isSaved ? arrayRemove(post.id) : arrayUnion(post.id)
+    });
   };
 
   const handleLike = () => {
     if (!currentUser) return;
-
-    const updatedPost = { ...post };
-
-    if (isLiked) {
-      updatedPost.likes = updatedPost.likes.filter(
-        (id) => id !== currentUser.id
-      );
-      setLikesCount(likesCount - 1);
-    } else {
-      updatedPost.likes.push(currentUser.id);
-      setLikesCount(likesCount + 1);
-    }
-
     setIsLiked(!isLiked);
-    savePost(updatedPost);
+    setLikesCount(isLiked ? likesCount - 1 : likesCount + 1);
+    const postRef = doc(db, "posts", post.id);
+    updateDoc(postRef, {
+      likes: isLiked ? arrayRemove(currentUser.id) : arrayUnion(currentUser.id)
+    });
   };
 
   const handleAddComment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || !newComment.trim()) return;
-
     const comment: Comment = {
       id: Date.now().toString(),
       userId: currentUser.id,
@@ -88,25 +83,25 @@ const PostCard: React.FC<PostCardProps> = ({
       text: newComment.trim(),
       timestamp: Date.now(),
     };
-
     const updatedComments = [...comments, comment];
-    const updatedPost = { ...post, comments: updatedComments };
-
     setComments(updatedComments);
     setNewComment("");
-    savePost(updatedPost);
+    const postRef = doc(db, "posts", post.id);
+    updateDoc(postRef, {
+      comments: updatedComments
+    });
   };
 
   const handleDeleteComment = (commentId: string) => {
     if (!currentUser) return;
-
     const updatedComments = comments.filter(
       (comment) => comment.id !== commentId
     );
-    const updatedPost = { ...post, comments: updatedComments };
-
     setComments(updatedComments);
-    savePost(updatedPost);
+    const postRef = doc(db, "posts", post.id);
+    updateDoc(postRef, {
+      comments: updatedComments
+    });
   };
 
   const handleDeletePost = () => {

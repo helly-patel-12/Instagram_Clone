@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Upload, User } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/useAuth';
 import { User as UserType } from '../../types';
 
 interface EditProfileProps {

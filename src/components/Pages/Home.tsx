@@ -3,8 +3,10 @@ import PostCard from "../Post/PostCard";
 import PostModal from "../Post/EditPostModal";
 import FullscreenModal from "../Post/ViewFullPostModal";
 import { Post, User } from "../../types";
-import { getPosts, deletePost, savePost, getUsers } from "../../utils/storage";
-import { useAuth } from "../../contexts/AuthContext";
+import { db } from "../../utils/firebase";
+import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, onSnapshot } from "firebase/firestore";
+import { arrayUnion } from "firebase/firestore";
+import { useAuth } from "../../contexts/useAuth";
 
 interface HomeProps {
   onUserClick: (username: string) => void;
@@ -18,51 +20,66 @@ const Home: React.FC<HomeProps> = ({ onUserClick }) => {
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const { currentUser, logout } = useAuth();
-  useEffect(() => {
-    loadPosts();
-    loadUsers();
-  }, []);
+    useEffect(() => {
+      // Real-time posts listener
+      const postsQuery = query(collection(db, "posts"), orderBy("timestamp", "desc"));
+      const unsubscribePosts = onSnapshot(postsQuery, (postsSnapshot) => {
+        const allPosts: Post[] = postsSnapshot.docs.map(doc => {
+          const data = doc.data();
+          let timestamp = data.timestamp;
+          if (timestamp && typeof timestamp === "object" && typeof timestamp.toDate === "function") {
+            timestamp = timestamp.toDate().getTime();
+          }
+          return { id: doc.id, ...data, timestamp } as Post;
+        });
+        setPosts(allPosts);
+        setIsLoading(false);
+      });
 
-  const loadUsers = () => {
-    const allUsers = getUsers();
-    if (allUsers && allUsers.length > 0) {
-      const filteredUsers = currentUser
-        ? allUsers.filter((u) => u.id !== currentUser.id) // or u.username !== currentUser.username
-        : allUsers;
+      // Load users (not real-time)
+      const loadUsers = async () => {
+        const usersSnapshot = await getDocs(collection(db, "users"));
+        const allUsers: User[] = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+        if (allUsers && allUsers.length > 0) {
+          const filteredUsers = currentUser
+            ? allUsers.filter((u) => u.id !== currentUser.id)
+            : allUsers;
+          setUsers(filteredUsers);
+        } else if (currentUser) {
+          setUsers([currentUser]);
+        } else {
+          setUsers([]);
+        }
+      };
+      loadUsers();
 
-      setUsers(filteredUsers);
-    } else if (currentUser) {
-      setUsers([currentUser]);
-    } else {
-      setUsers([]);
-    }
-  };
+      return () => {
+        unsubscribePosts();
+      };
+    }, [currentUser]);
 
-  const loadPosts = () => {
-    setIsLoading(true);
-    const allPosts = getPosts();
-    // Sort posts by timestamp (newest first)
-    const sortedPosts = allPosts.sort((a, b) => b.timestamp - a.timestamp);
-    setPosts(sortedPosts);
-    setIsLoading(false);
-  };
-
-  const handleDeletePost = (postId: string) => {
-    const updatedPosts = posts.filter((post) => post.id !== postId);
-    setPosts(updatedPosts);
-    deletePost(postId);
+  const handleDeletePost = async (postId: string) => {
+    await deleteDoc(doc(db, "posts", postId));
+    setPosts(posts.filter((post) => post.id !== postId));
   };
   const handleEditPost = (post: Post) => {
     setSelectedPost(post);
     setIsModalOpen(true);
   };
 
-  const handleSavePost = (updatedPost: Post) => {
-    const updatedPosts = posts.map((post) =>
+  const handleSavePost = async (updatedPost: Post) => {
+    const postData = { ...updatedPost };
+    delete (postData as { id?: string }).id;
+    await updateDoc(doc(db, "posts", updatedPost.id), postData);
+    setPosts(posts.map((post) =>
       post.id === updatedPost.id ? updatedPost : post
-    );
-    setPosts(updatedPosts);
-    savePost(updatedPost); // Save the updated post to localStorage
+    ));
+    // Add post to current user's savedPosts in Firestore
+    if (currentUser) {
+      await updateDoc(doc(db, "users", currentUser.id), {
+        savedPosts: arrayUnion(updatedPost.id)
+      });
+    }
   };
 
   const handleViewPostFullscreen = (post: Post) => {
@@ -71,21 +88,7 @@ const Home: React.FC<HomeProps> = ({ onUserClick }) => {
   };
 
   // Listen for storage changes to refresh posts when new ones are created
-  useEffect(() => {
-    const handleStorageChange = () => {
-      loadPosts();
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-
-    // Also listen for custom events when posts are updated
-    window.addEventListener("postsUpdated", handleStorageChange);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("postsUpdated", handleStorageChange);
-    };
-  }, []);
+  // Real-time updates now handled by onSnapshot above
 
   if (isLoading) {
     return (

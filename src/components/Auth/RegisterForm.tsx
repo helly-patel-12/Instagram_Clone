@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/useAuth';
 import { Eye, EyeOff, Instagram } from 'lucide-react';
 
 interface RegisterFormProps {
@@ -7,9 +7,8 @@ interface RegisterFormProps {
 }
 
 const RegisterForm: React.FC<RegisterFormProps> = ({ onToggleForm }) => {
-  const [username, setUsername] = useState('');
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -28,11 +27,11 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onToggleForm }) => {
     }
 
     try {
-      const success = await register(username, email, name, password);
+      const success = await register(email, name, password);
       if (!success) {
-        setError('Username already exists. Please choose a different one.');
+        setError('Email already exists or registration failed.');
       }
-    } catch (err) {
+    } catch {
       setError('Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -60,7 +59,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onToggleForm }) => {
             required
           />
         </div>
-
         <div>
           <input
             type="email"
@@ -72,17 +70,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onToggleForm }) => {
           />
         </div>
 
-        <div>
-          <input
-            type="text"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
-            required
-            minLength={3}
-          />
-        </div>
+  {/* Username field removed, now using email */}
         
         <div className="relative">
           <input

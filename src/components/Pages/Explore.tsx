@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { Post, User } from "../../types";
-import { getPosts, getUsers } from "../../utils/storage";
-import { useAuth } from "../../contexts/AuthContext";
+import { db } from "../../utils/firebase";
+import { collection, getDocs } from "firebase/firestore";
+import { useAuth } from "../../contexts/useAuth";
 import ViewFullPostModal from "../Post/ViewFullPostModal";
 
 interface ExploreProps {
@@ -23,22 +24,21 @@ const Explore: React.FC<ExploreProps> = () => {
 
   const loadExploreData = () => {
     setIsLoading(true);
-
-    const allPosts = getPosts();
-    const allUsers = getUsers();
-
-    // Filter out current user's posts and user
-    const otherPosts = allPosts.filter(
-      (post) => post.userId !== currentUser?.id
-    );
-    const otherUsers = allUsers.filter((user) => user.id !== currentUser?.id);
-
-    // Shuffle posts for explore feel
-    const shuffledPosts = otherPosts.sort(() => Math.random() - 0.5);
-
-    setPosts(shuffledPosts);
-    setUsers(otherUsers);
-    setIsLoading(false);
+    Promise.all([
+      getDocs(collection(db, "posts")),
+      getDocs(collection(db, "users"))
+    ]).then(([postsSnapshot, usersSnapshot]) => {
+      const allPosts: Post[] = postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+      const allUsers: User[] = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+      // Filter out current user's posts and user
+      const otherPosts = allPosts.filter((post) => post.userId !== currentUser?.id);
+      const otherUsers = allUsers.filter((user) => user.id !== currentUser?.id);
+      // Shuffle posts for explore feel
+      const shuffledPosts = otherPosts.sort(() => Math.random() - 0.5);
+      setPosts(shuffledPosts);
+      setUsers(otherUsers);
+      setIsLoading(false);
+    });
   };
 
   // const filteredUsers = users.filter((user) =>

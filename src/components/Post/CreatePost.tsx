@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { X, Upload } from "lucide-react";
-import { useAuth } from "../../contexts/AuthContext";
-import { savePost } from "../../utils/storage";
-import { Post } from "../../types";
+import { useAuth } from "../../contexts/useAuth";
+import { db, storage } from "../../utils/firebase";
+import { collection, addDoc, doc, updateDoc, arrayUnion } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+// import { Post } from "../../types";
 
 interface CreatePostProps {
   onClose: () => void;
@@ -10,7 +12,7 @@ interface CreatePostProps {
 }
 
 const CreatePost: React.FC<CreatePostProps> = ({ onClose, onPostCreated }) => {
-  const { currentUser, updateCurrentUser } = useAuth();
+  const { currentUser } = useAuth();
   const [selectedImage, setSelectedImage] = useState<string>("");
   const [caption, setCaption] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -61,26 +63,35 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, onPostCreated }) => {
     setIsLoading(true);
 
     try {
-      const newPost: Post = {
-        id: Date.now().toString(),
+      let imageUrl = selectedImage;
+      // If image is a data URL, upload to Firebase Storage
+      if (uploadMethod === "upload" && selectedImage.startsWith("data:")) {
+        const response = await fetch(selectedImage);
+        const blob = await response.blob();
+        const storageRef = ref(storage, `posts/${currentUser.id}/${Date.now()}`);
+        await uploadBytes(storageRef, blob);
+        imageUrl = await getDownloadURL(storageRef);
+      }
+
+      // Create post in Firestore
+      const { serverTimestamp } = await import("firebase/firestore");
+      const postData = {
         userId: currentUser.id,
-        imageUrl: selectedImage,
+        imageUrl,
         caption: caption.trim(),
         likes: [],
         comments: [],
-        timestamp: Date.now(),
+        timestamp: serverTimestamp(),
       };
+      const postRef = await addDoc(collection(db, "posts"), postData);
 
-      savePost(newPost);
-
-      const updatedUser = {
-        ...currentUser,
-        posts: [...currentUser.posts, newPost.id],
-      };
-      updateCurrentUser(updatedUser);
+      // Update user's posts array in Firestore
+      const userRef = doc(db, "users", currentUser.id);
+      await updateDoc(userRef, {
+        posts: arrayUnion(postRef.id),
+      });
 
       window.dispatchEvent(new CustomEvent("postsUpdated"));
-
       onPostCreated();
       onClose();
     } catch (error) {

@@ -12,8 +12,9 @@ import {
   Plus,
   ArrowLeft,
 } from "lucide-react";
-import { useAuth } from "../../contexts/AuthContext";
-import { getUsers } from "../../utils/storage";
+import { useAuth } from "../../contexts/useAuth";
+import { db } from "../../utils/firebase";
+import { collection, getDocs } from "firebase/firestore";
 import { User } from "../../types";
 
 const getOtherUsers = (allUsers: User[], currentUser: User | null): User[] => {
@@ -32,8 +33,12 @@ const Messages: React.FC<MessageProps> = ({ onUserClick }) => {
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
 
   useEffect(() => {
-    const allUsers = getUsers();
-    setUsers(getOtherUsers(allUsers, currentUser));
+    const fetchUsers = async () => {
+      const usersSnapshot = await getDocs(collection(db, "users"));
+      const allUsers: User[] = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+      setUsers(getOtherUsers(allUsers, currentUser));
+    };
+    fetchUsers();
   }, [currentUser]);
 
   // Track window resize for responsiveness
@@ -159,14 +164,12 @@ const Messages: React.FC<MessageProps> = ({ onUserClick }) => {
               <div className="p-4 border-b flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {/* Back button (mobile only) */}
-                  {isMobile && (
                     <button
                       onClick={() => setSelectedUser(null)}
                       className="mr-2"
                     >
                       <ArrowLeft size={22} />
                     </button>
-                  )}
                   <img
                     src={selectedUser.avatar}
                     alt={selectedUser.username}

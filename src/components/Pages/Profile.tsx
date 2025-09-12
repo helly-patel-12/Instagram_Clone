@@ -9,16 +9,12 @@ import {
   X,
 } from "lucide-react";
 import { User, Post } from "../../types";
-import {
-  getUserByUsername,
-  getPostsByUserId,
-  getUserById,
-  getPosts,
-} from "../../utils/storage";
-import { useAuth } from "../../contexts/AuthContext";
+import { db, auth } from "../../utils/firebase";
+import { EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
+import { doc, getDoc, collection, getDocs, query, where, deleteDoc } from "firebase/firestore";
+import { useAuth } from "../../contexts/useAuth";
 import EditProfile from "../Profile/EditProfile";
 import ViewFullPostModal from "../Post/ViewFullPostModal";
-import { deleteUserById } from "../../utils/storage";
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -92,6 +88,7 @@ const Profile: React.FC<ProfileProps> = ({ selectedUser }) => {
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [activeTab, setActiveTab] = useState("posts");
+  const [savedPosts, setSavedPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
@@ -99,26 +96,60 @@ const Profile: React.FC<ProfileProps> = ({ selectedUser }) => {
 
   useEffect(() => {
     loadProfile();
+    // eslint-disable-next-line
   }, [selectedUser, currentUser]);
 
-  const loadProfile = React.useCallback(() => {
+  useEffect(() => {
+    const fetchSavedPosts = async () => {
+      if (currentUser?.savedPosts && currentUser.savedPosts.length > 0) {
+        // Firestore doesn't support 'in' queries with more than 10 items, so batch if needed
+        const batches = [];
+        for (let i = 0; i < currentUser.savedPosts.length; i += 10) {
+          const batchIds = currentUser.savedPosts.slice(i, i + 10);
+          const postsRef = collection(db, "posts");
+          const q = query(postsRef, where("id", "in", batchIds));
+          const snap = await getDocs(q);
+          batches.push(...snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post)));
+        }
+        setSavedPosts(batches);
+      } else {
+        setSavedPosts([]);
+      }
+    };
+    fetchSavedPosts();
+  }, [currentUser]);
+
+  const loadProfile = React.useCallback(async () => {
     setIsLoading(true);
-
     let user: User | null = null;
-
     if (selectedUser) {
-      user = getUserByUsername(selectedUser);
+      // Query user by username
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("username", "==", selectedUser));
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        user = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as User;
+      }
     } else if (currentUser) {
-      user = getUserById(currentUser.id) || currentUser;
+      // Get user by ID
+      const userRef = doc(db, "users", currentUser.id);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        user = { id: userSnap.id, ...userSnap.data() } as User;
+      } else {
+        user = currentUser;
+      }
     }
-
     if (user) {
       setProfileUser(user);
-      const posts = getPostsByUserId(user.id);
-      const sortedPosts = posts.sort((a, b) => b.timestamp - a.timestamp);
-      setUserPosts(sortedPosts);
+      // Get posts by user ID
+      const postsRef = collection(db, "posts");
+      const postsQ = query(postsRef, where("userId", "==", user.id));
+      const postsSnap = await getDocs(postsQ);
+  const posts: Post[] = postsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+  const sortedPosts = posts.sort((a, b) => b.timestamp - a.timestamp);
+  setUserPosts(sortedPosts);
     }
-
     setIsLoading(false);
   }, [selectedUser, currentUser]);
 
@@ -138,9 +169,9 @@ const Profile: React.FC<ProfileProps> = ({ selectedUser }) => {
     );
   };
 
-  const handleProfileSave = (updatedUser: User) => {
-    updateCurrentUser(updatedUser);
-    setProfileUser(updatedUser);
+  const handleProfileSave = async (updatedUser: User) => {
+    await updateCurrentUser(updatedUser);
+    await loadProfile(); // Reload profile from Firestore after update
   };
 
   if (isLoading) {
@@ -167,7 +198,7 @@ const Profile: React.FC<ProfileProps> = ({ selectedUser }) => {
   const isFollowing = currentUser?.following.includes(profileUser.id) || false;
 
   return (
-    <div className="max-w-4xl mx-auto py-8 md:pl-6 pl-60">
+    <div className="max-w-4xl mx-auto pt-10 py-20 md:py-8 md:pl-20 pl-0 p-5 md:p-10">
       {/* Profile Header */}
       <div className="flex flex-col sm:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-8 mb-8">
         <div className="p-1 ml-0 md:ml-10 sm:ml-0 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600">
@@ -317,25 +348,21 @@ const Profile: React.FC<ProfileProps> = ({ selectedUser }) => {
 
         {activeTab === "saved" && (
           <div>
-            {currentUser?.savedPosts && currentUser.savedPosts.length > 0 ? (
+            {savedPosts.length > 0 ? (
               <div className="grid grid-cols-3 gap-1 md:gap-4">
-                {getPosts()
-                  .filter((post: Post) =>
-                    currentUser.savedPosts?.includes(post.id)
-                  )
-                  .map((post: Post) => (
-                    <div
-                      key={post.id}
-                      className="aspect-square bg-gray-100 overflow-hidden group cursor-pointer"
-                      onClick={() => setSelectedPost(post)}
-                    >
-                      <img
-                        src={post.imageUrl}
-                        alt="Post"
-                        className="w-full h-full object-cover group-hover:opacity-75 transition-opacity"
-                      />
-                    </div>
-                  ))}
+                {savedPosts.map((post: Post) => (
+                  <div
+                    key={post.id}
+                    className="aspect-square bg-gray-100 overflow-hidden group cursor-pointer"
+                    onClick={() => setSelectedPost(post)}
+                  >
+                    <img
+                      src={post.imageUrl}
+                      alt="Post"
+                      className="w-full h-full object-cover group-hover:opacity-75 transition-opacity"
+                    />
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="text-center py-20">
@@ -386,10 +413,27 @@ const Profile: React.FC<ProfileProps> = ({ selectedUser }) => {
         <SettingsModal
           onClose={() => setShowSettingsModal(false)}
           onLogout={logout}
-          onDeleteUser={() => {
-            if (currentUser) {
-              deleteUserById(currentUser.id);
-              logout();
+          onDeleteUser={async () => {
+            if (currentUser && auth.currentUser) {
+              // Prompt for password
+              const password = window.prompt("Please enter your password to confirm account deletion:");
+              if (!password) {
+                alert("Password is required to delete your account.");
+                return;
+              }
+              try {
+                // Re-authenticate
+                const credential = EmailAuthProvider.credential(currentUser.email, password);
+                await reauthenticateWithCredential(auth.currentUser, credential);
+                // Delete Firestore profile
+                await deleteDoc(doc(db, "users", currentUser.id));
+                // Delete Firebase Auth user
+                await auth.currentUser.delete();
+                // Log out
+                logout();
+              } catch (error) {
+                alert("Failed to delete account. Please check your password and try again.");
+              }
             }
           }}
         />

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/useAuth";
 import { Eye, EyeOff, Instagram } from "lucide-react";
 
 interface LoginFormProps {
@@ -7,7 +7,7 @@ interface LoginFormProps {
 }
 
 const LoginForm: React.FC<LoginFormProps> = ({ onToggleForm }) => {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -20,13 +20,13 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleForm }) => {
     setIsLoading(true);
 
     try {
-      const success = await login(username, password);
+      const success = await login(email, password);
       if (!success) {
         setError(
-          'Invalid username or password. Try a valid username.'
+          'Invalid email or password. Please try again.'
         );
       }
-    } catch (err) {
+    } catch {
       setError("Login failed. Please try again.");
     } finally {
       setIsLoading(false);
@@ -48,10 +48,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleForm }) => {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <input
-            type="text"
-            placeholder="Username"
-            value={username} 
-            onChange={(e) => setUsername(e.target.value)}
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
             required
           />
@@ -106,15 +106,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleForm }) => {
         </p>
       </div>
 
-      <div className="mt-6 p-4 bg-gray-50 rounded-md">
-        <h3 className="text-sm font-medium text-gray-700 mb-2">
-          Demo Accounts:
-        </h3>
-        <p className="text-xs text-gray-600">
-          Use these usernames: hellypatel, vedantidave, varunpatani (any
-          password)
-        </p>
-      </div>
+  {/* Demo accounts section removed for Firebase */}
     </div>
   );
 };
