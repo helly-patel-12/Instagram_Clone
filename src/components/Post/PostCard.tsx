@@ -482,7 +482,7 @@ const PostCard: React.FC<PostCardProps> = ({
                 className="border p-2 rounded hover:bg-gray-100"
                 onClick={() => {
                   navigator.clipboard.writeText(
-                    `http://localhost:5173/`
+                    `https://instagram-clone-iota-silk.vercel.app/`
                   );
                   alert("Link copied!");
                   setSharePost(null);
@@ -496,7 +496,7 @@ const PostCard: React.FC<PostCardProps> = ({
                   if (navigator.share) {
                     navigator.share({
                       title: "Check this post",
-                      url: `http://localhost:5173/`,
+                      url: `https://instagram-clone-iota-silk.vercel.app/`,
                     });
                   } else {
                     alert("Sharing not supported on this device");
