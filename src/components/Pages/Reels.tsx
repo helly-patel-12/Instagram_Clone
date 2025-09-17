@@ -9,11 +9,18 @@ import {
   VolumeX,
   Music,
 } from "lucide-react";
+import waterflow from "../Images/waterflow.mp4"
+import goodvibes from "../Images/goodvibes.mp4"
+import travel from "../Images/travel.mp4"
+import food from "../Images/food.mp4"
+import dog from "../Images/dog.mp4"
+import plane from "../Images/plane.mp4"
+import forest from "../Images/forest.mp4"
 
 const reelsData = [
   {
     id: 1,
-    video: "https://www.pexels.com/download/video/10643924/",
+    video: waterflow,
     user: {
       username: "manavpatel",
       avatar:
@@ -26,7 +33,7 @@ const reelsData = [
   },
   {
     id: 2,
-    video: "https://www.pexels.com/download/video/854101/",
+    video: goodvibes,
     user: {
       username: "rohan",
       avatar: "https://i.pravatar.cc/150?img=1",
@@ -38,7 +45,7 @@ const reelsData = [
   },
   {
     id: 3,
-    video: "https://www.pexels.com/download/video/3326930/",
+    video: travel,
     user: {
       username: "travelguru",
       avatar: "https://i.pravatar.cc/150?img=5",
@@ -50,7 +57,7 @@ const reelsData = [
   },
   {
     id: 4,
-    video: "https://www.pexels.com/download/video/2620043/",
+    video: food,
     user: {
       username: "foodie",
       avatar: "https://i.pravatar.cc/150?img=4",
@@ -62,7 +69,7 @@ const reelsData = [
   },
   {
     id: 5,
-    video: "https://www.pexels.com/download/video/5534310/",
+    video: dog,
     user: {
       username: "petlover",
       avatar: "https://i.pravatar.cc/150?img=9",
@@ -74,7 +81,7 @@ const reelsData = [
   },
   {
     id: 6,
-    video: "https://www.pexels.com/download/video/2023708/",
+    video: plane,
     user: {
       username: "traveller",
       avatar: "https://i.pravatar.cc/150?img=6",
@@ -86,7 +93,7 @@ const reelsData = [
   },
   {
     id: 7,
-    video: "https://www.pexels.com/download/video/4420919/",
+    video: forest,
     user: {
       username: "naturelover",
       avatar: "https://i.pravatar.cc/150?img=7",
@@ -168,10 +175,10 @@ const ReelsPage: React.FC = () => {
     currentIndex === reelsData.length - 1 ? null : reelsData[currentIndex + 1];
 
   return (
-    <div className="flex justify-center items-center bg-white h-[70vh] sm:h-[75vh] md:h-[90vh] w-full my-2 px-0 sm:px-4 md:px-0">
-      <div className="flex flex-col w-full max-w-2xl items-center justify-center h-full relative">
+    <div className="flex justify-center items-center bg-white h-[95vh] sm:h-[90vh] md:h-[90vh] w-full my-2 px-0 sm:px-4">
+      <div className="flex flex-col w-full max-w-2xl items-center h-full relative bottom-0">
         {/* Previous reel preview */}
-        <div className="w-[50%] h-[2%] rounded-NONE overflow-hidden opacity-60 scale-100 pointer-events-none mb-2">
+        <div className="w-0 h-0 sm:w-[50%] sm:h-[2%] rounded-none overflow-hidden opacity-60 scale-100 pointer-events-none mb-2">
           {prevReelData ? (
             <video
               src={prevReelData.video}
@@ -186,9 +193,9 @@ const ReelsPage: React.FC = () => {
             <div className="h-full w-full bg-white" /> // 👈 blank white block
           )}
         </div>
-        {/* Current Reel (center, 80% height) */}
-        <div className="w-[50%] h-[96%] rounded-none overflow-hidden relative bg-white flex items-center justify-center">
-          {/* Error Overlay (pointer-events-none so it never blocks video) */}
+        {/* Current Reel */}
+        <div className="w-[90%] sm:w-[50%] h-[90%] sm:h-[96%] rounded-none overflow-hidden relative bg-white flex items-center justify-center">
+          {/* Error Overlay */}
           {videoError && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 z-40 pointer-events-none">
               <span className="text-white mb-4">Failed to load video.</span>
@@ -208,15 +215,18 @@ const ReelsPage: React.FC = () => {
             key={reel.id}
             ref={videoRef}
             src={reel.video}
-            className="absolute top-0 left-0 w-full h-full object-cover"
-            muted={muted}
+            className="absolute w-full h-full object-cover"
+            muted
             playsInline
             autoPlay
+            loop={false}
+            controls={false}
             onEnded={nextReel}
             onError={() => {
               setVideoError(true);
             }}
             style={{ maxHeight: "100%", maxWidth: "100%" }}
+            preload="auto"
           />
 
           {/* Center Volume Button */}
@@ -244,27 +254,27 @@ const ReelsPage: React.FC = () => {
 
           {/* Right Sidebar */}
           {!videoError && (
-            <div className="absolute right-2 sm:right-3 bottom-3 sm:bottom-5 flex flex-col items-center gap-4 sm:gap-6 text-white z-20">
+            <div className="absolute right-2 sm:right-3 bottom-3 sm:bottom-5 flex flex-col items-center gap-4 sm:gap-5 text-white z-20">
               <div className="flex flex-col items-center">
-                <Heart className="w-6 h-6 sm:w-7 sm:h-7 cursor-pointer" />
-                <span className="text-xs sm:text-sm">{reel.likes}</span>
+                <Heart className="w-6 h-6 sm:w-5 sm:h-5 cursor-pointer" />
+                <span className="text-[6px] sm:text-sm">{reel.likes}</span>
               </div>
               <div className="flex flex-col items-center">
-                <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7 cursor-pointer" />
-                <span className="text-xs sm:text-sm">{reel.comments}</span>
+                <MessageCircle className="w-6 h-6 sm:w-5 sm:h-5 cursor-pointer" />
+                <span className="text-[6px] sm:text-sm">{reel.comments}</span>
               </div>
-              <Share2 className="w-6 h-6 sm:w-7 sm:h-7 cursor-pointer" />
-              <Bookmark className="w-6 h-6 sm:w-7 sm:h-7 cursor-pointer" />
-              <MoreVertical className="w-6 h-6 sm:w-7 sm:h-7 cursor-pointer" />
-              <div className="bg-white rounded-lg w-6 h-6 sm:w-7 sm:h-7 items-center flex justify-center">
-                <Music className="w-4 h-4 sm:w-5 sm:h-5 text-black relative" />
+              <Share2 className="w-6 h-6 sm:w-5 sm:h-5 cursor-pointer" />
+              <Bookmark className="w-6 h-6 sm:w-5 sm:h-5 cursor-pointer" />
+              <MoreVertical className="w-6 h-6 sm:w-5 sm:h-5 cursor-pointer" />
+              <div className="bg-white rounded-lg w-6 h-6 sm:w-6 sm:h-6 items-center flex justify-center">
+                <Music className="w-4 h-4 sm:w-4 sm:h-4 text-black relative" />
               </div>
             </div>
           )}
 
           {/* Bottom Info */}
           {!videoError && (
-            <div className="absolute bottom-3 sm:bottom-5 left-2 sm:left-4 text-white w-[90%] sm:w-[80%] pr-8 sm:pr-14 z-20">
+            <div className="absolute bottom-3 sm:bottom-2 left-2 sm:left-2 text-white w-[90%] sm:w-[90%] pr-8 sm:pr-14 z-20">
               <div className="flex items-center gap-2 sm:gap-3 mb-2">
                 <img
                   src={reel.user.avatar}
@@ -287,7 +297,7 @@ const ReelsPage: React.FC = () => {
           )}
         </div>
         {/* Next Reel (10% visible, bottom) */}
-        <div className="w-[50%] h-[2%] rounded-none overflow-hidden opacity-60 scale-100 pointer-events-none mt-2">
+        <div className="w-0 h-0 sm:w-[50%] sm:h-[2%] rounded-NONE overflow-hidden opacity-60 scale-100 pointer-events-none mt-2">
           <video
             src={nextReelData?.video}
             className="h-full w-full object-cover"

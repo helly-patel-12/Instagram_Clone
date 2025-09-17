@@ -198,9 +198,9 @@ const Profile: React.FC<ProfileProps> = ({ selectedUser }) => {
   const isFollowing = currentUser?.following.includes(profileUser.id) || false;
 
   return (
-    <div className="max-w-4xl mx-auto pt-10 py-20 md:py-8 md:pl-20 pl-0 p-5 md:p-10">
+    <div className="max-w-4xl mx-auto pt-10 py-20 md:py-8 md:pl-20 pl-auto p-5 md:p-10">
       {/* Profile Header */}
-      <div className="flex flex-col sm:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-8 mb-8">
+      <div className="flex flex-col sm:flex-row items-center md:items-start space-y-6 md:space-y-0 mb-4">
         <div className="p-1 ml-0 md:ml-10 sm:ml-0 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600">
           <img
             src={profileUser.avatar}
@@ -244,7 +244,7 @@ const Profile: React.FC<ProfileProps> = ({ selectedUser }) => {
             </div>
           </div>
 
-          <div className="flex justify-center md:justify-start space-x-8 mb-4">
+          <div className="flex justify-start md:justify-start space-x-4 mb-4">
             <div className="text-center">
               <span className="font-semibold">{userPosts.length}</span>
               <span className="text-gray-600 ml-1">posts</span>
@@ -271,7 +271,7 @@ const Profile: React.FC<ProfileProps> = ({ selectedUser }) => {
 
       {/* Tabs */}
       <div className="border-t border-gray-200">
-        <div className="flex justify-center space-x-16">
+        <div className="flex justify-center space-x-12 sm:space-x-16">
           <button
             onClick={() => setActiveTab("posts")}
             className={`flex items-center space-x-1 py-3 text-xs font-medium uppercase tracking-wide border-t-2 transition-colors ${
