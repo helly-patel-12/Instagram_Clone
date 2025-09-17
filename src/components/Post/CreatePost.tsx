@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { X, Upload } from "lucide-react";
 import { useAuth } from "../../contexts/useAuth";
-import { db, storage } from "../../utils/firebase";
+import { db } from "../../utils/firebase";
 import { collection, addDoc, doc, updateDoc, arrayUnion } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+// import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 // import { Post } from "../../types";
 
 interface CreatePostProps {
@@ -12,15 +12,17 @@ interface CreatePostProps {
 }
 
 const CreatePost: React.FC<CreatePostProps> = ({ onClose, onPostCreated }) => {
-  const { currentUser } = useAuth();
+  const IMGBB_API_KEY = "4a9f8243d9194afc8cb29314d2e9dfa9";
+  const { currentUser, updateCurrentUser } = useAuth();
   const [selectedImage, setSelectedImage] = useState<string>("");
   const [caption, setCaption] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [uploadMethod, setUploadMethod] = useState<"upload" | "sample" | "url">(
-    "upload"
-  );
+  const [uploadMethod, setUploadMethod] = useState<"upload" | "sample" | "url">("upload");
   const [urlInput, setUrlInput] = useState("");
-
+  const [file, setFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploadError, setUploadError] = useState<string>("");
+ 
   const sampleImages = [
     "https://images.pexels.com/photos/1563356/pexels-photo-1563356.jpeg?auto=compress&cs=tinysrgb&w=800",
     "https://images.pexels.com/photos/376464/pexels-photo-376464.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -34,21 +36,23 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, onPostCreated }) => {
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    setUploadError("");
+    setUploadProgress(0);
     if (file) {
       if (file.size > 10 * 1024 * 1024) {
-        alert("File size must be less than 10MB");
+        setUploadError("File size must be less than 10MB");
         return;
       }
-
+      setFile(file); // store file for upload
       const reader = new FileReader();
       reader.onload = (e) => {
         const result = e.target?.result as string;
-        setSelectedImage(result);
-        setUrlInput(""); // clear URL when uploading
+        setSelectedImage(result); // just for preview
+        setUrlInput("");
       };
       reader.readAsDataURL(file);
     }
-  };
+};
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -59,22 +63,38 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, onPostCreated }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || !selectedImage) return;
-
     setIsLoading(true);
-
     try {
       let imageUrl = selectedImage;
-      // If image is a data URL, upload to Firebase Storage
-      if (uploadMethod === "upload" && selectedImage.startsWith("data:")) {
-        const response = await fetch(selectedImage);
-        const blob = await response.blob();
-        const storageRef = ref(storage, `posts/${currentUser.id}/${Date.now()}`);
-        await uploadBytes(storageRef, blob);
-        imageUrl = await getDownloadURL(storageRef);
+
+      if (uploadMethod === "upload" && file) {
+        setUploadProgress(0);
+        setUploadError("");
+        // Upload to imgbb
+        // Convert file to base64
+        const toBase64 = (file: File) => new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve((reader.result as string).split(",")[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const base64Image = await toBase64(file);
+        const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+          method: "POST",
+          body: new URLSearchParams({ image: base64Image }),
+        });
+        const data = await response.json();
+        if (data.success) {
+          imageUrl = data.data.url;
+        } else {
+          setUploadError("imgbb upload failed. Try again.");
+          setIsLoading(false);
+          return;
+        }
       }
 
       // Create post in Firestore
-      const { serverTimestamp } = await import("firebase/firestore");
+      const { serverTimestamp, getDoc } = await import("firebase/firestore");
       const postData = {
         userId: currentUser.id,
         imageUrl,
@@ -84,12 +104,24 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, onPostCreated }) => {
         timestamp: serverTimestamp(),
       };
       const postRef = await addDoc(collection(db, "posts"), postData);
+      // Immediately update the new post with its own id field
+      await updateDoc(postRef, { id: postRef.id });
 
       // Update user's posts array in Firestore
       const userRef = doc(db, "users", currentUser.id);
       await updateDoc(userRef, {
         posts: arrayUnion(postRef.id),
       });
+
+      // Fetch latest user data and update context for instant propagation
+      const userDoc = await getDoc(userRef);
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        updateCurrentUser({
+          ...currentUser,
+          posts: data.posts || [],
+        });
+      }
 
       window.dispatchEvent(new CustomEvent("postsUpdated"));
       onPostCreated();
@@ -186,6 +218,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, onPostCreated }) => {
                 </div>
                 <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
               </label>
+              {uploadError && (
+                <div className="text-red-500 text-sm mt-2">{uploadError}</div>
+              )}
+              {isLoading && uploadProgress > 0 && uploadProgress < 100 && (
+                <div className="mt-4">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-500 h-2 rounded-full"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                  <div className="text-xs text-gray-600 mt-1">Uploading: {uploadProgress.toFixed(0)}%</div>
+                </div>
+              )}
             </div>
           )}
 

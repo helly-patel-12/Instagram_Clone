@@ -27,7 +27,7 @@ const PostCard: React.FC<PostCardProps> = ({
   onEditPost,
   onViewPostFullscreen,
 }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, updateCurrentUser } = useAuth();
   const [isLiked, setIsLiked] = useState(
     post.likes.includes(currentUser?.id || "")
   );
@@ -56,10 +56,22 @@ const PostCard: React.FC<PostCardProps> = ({
 
   const handleSave = () => {
     if (!currentUser) return;
-    setIsSaved(!isSaved);
+    const newSaved = !isSaved;
+    setIsSaved(newSaved);
     const userRef = doc(db, "users", currentUser.id);
     updateDoc(userRef, {
-      savedPosts: isSaved ? arrayRemove(post.id) : arrayUnion(post.id)
+      savedPosts: newSaved ? arrayUnion(post.id) : arrayRemove(post.id)
+    }).then(async () => {
+      // Fetch latest user data from Firestore for robust context update
+      const userDoc = await getDoc(userRef);
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        updateCurrentUser({
+          ...currentUser,
+          savedPosts: data.savedPosts || [],
+        });
+        console.log('Updated savedPosts:', data.savedPosts);
+      }
     });
   };
 
@@ -226,7 +238,7 @@ const PostCard: React.FC<PostCardProps> = ({
               {currentUser && post.userId !== currentUser.id && (
                 <>
                   <button
-                    onClick={() => setShowDropdown(false)}
+                    onClick={() => onUserClick(postUser.username)}
                     className="block w-full text-center px-4 py-2 text-gray-800 hover:bg-gray-100 border-b border-gray-200"
                   >
                     About this account
@@ -426,17 +438,17 @@ const PostCard: React.FC<PostCardProps> = ({
       </div>
 
       {/* Add Comment */}
-      <div className="border-t border-gray-200 p-4">
+      <div className="border-t border-gray-200 p-2">
         <form
           onSubmit={handleAddComment}
-          className="flex items-center space-x-3"
+          className="flex items-center space-x-3 p-2 rounded-lg bg-gray-100"
         >
           <input
             type="text"
             placeholder="Add a comment..."
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
-            className="flex-1 text-sm focus:outline-none"
+            className="flex-1 text-sm focus:outline-none bg-gray-100"
           />
           <svg
             aria-label="Emoji"
